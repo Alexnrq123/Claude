@@ -387,7 +387,7 @@ details.help summary { cursor: pointer; font-weight: 700; }
   const TOOLS = [
     ["|", " | ", "Barra de compás"], ["||", " || ", "Doble barra"], ["|:", " |: ", "Inicio de repetición"], [":|", " :| ", "Fin de repetición"], ["|]", " |]", "Barra final"],
     ["1.", "1. ", "Casilla 1"], ["2.", "2. ", "Casilla 2"], ["[A]", "[A] ", "Sección (caja)"], ['"…"', '"" ', "Pista de letra"],
-    ["*", "*", "Sostener acorde (rombo / parada)"], ["^", "^", "Calderón"], ["-", " - ", "Silencio de compás"], ["%", " % ", "Repetir compás anterior"],
+    ["*", "*", "Sostener acorde (rombo / parada)"], [":1", ":1", "Redonda"], [":2", ":2", "Blanca"], [":4", ":4", "Negra"], ["s:2", " s:2", "Silencio de blanca"], ["^", "^", "Calderón"], ["-", " - ", "Silencio de compás"], ["%", " % ", "Repetir compás anterior"],
     ["(x2)", "(x2) ", "Indicación de texto"], ["segno", "segno ", "Signo de segno"], ["coda", "coda ", "Signo de coda"],
   ];
   const HELP = [
@@ -395,7 +395,9 @@ details.help summary { cursor: pointer; font-weight: 700; }
     ["Am F", "Dos acordes: uno en el tiempo 1 y otro en el 3."],
     ["C / G/B Am", "Un acorde o una barra por tiempo. «/» o «.» es un tiempo sin cambio."],
     ["Em F#m G A", "Un acorde en cada tiempo: se dibujan con plica, como en una partitura."],
-    ["D/E*", "Asterisco: el acorde se sostiene (rombo). Sirve para paradas."],
+    ["C:2 G:2", "Figuras con número: :1 redonda, :2 blanca, :4 negra, :8 corchea. Agrega punto para puntillo (C:2.). s:2 es un silencio de blanca."],
+    ["C:2. / ", "Las figuras sin número duran un tiempo. Ej.: C:2. / = blanca con puntillo + una negra."],
+    ["D/E*", "Asterisco: el acorde se sostiene todo el compás (rombo). Sirve para paradas."],
     ["Amaj7*^", "Sostener con calderón (final)."],
     ["Em F#m G A {x.x.x.x-}", "Corte en corcheas: x golpe acentuado, o golpe, - sostener, . silencio. Los acordes se asignan a los golpes en orden."],
     ["{-------- }", "Si un corte empieza con «-», se liga con el último golpe del compás anterior (anticipación)."],

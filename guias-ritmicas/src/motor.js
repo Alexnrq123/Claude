@@ -118,7 +118,7 @@ const GR = (() => {
   }
 
   const BAR_RE = /^(:\|:|\|\|:|\|:|:\|\||:\||\|\]|\|\||\|)$/;
-  const TOKEN_RE = /(:\|:|\|\|:|\|:|:\|\||:\||\|\]|\|\||\|)|(\[[^\]\n]*\]?|"[^"\n]*"?|“[^”\n]*”?|\([^)\n]*\)?|\{[^}\n]*\}?)|([^\s|\[\]{}"“”(:][^\s|\[\]{}"“”:]*)|(\S)/g;
+  const TOKEN_RE = /(:\|:|\|\|:|\|:|:\|\||:\||\|\]|\|\||\|)|(\[[^\]\n]*\]?|"[^"\n]*"?|“[^”\n]*”?|\([^)\n]*\)?|\{[^}\n]*\}?)|([^\s|\[\]{}"“”(:][^\s|\[\]{}"“”:]*(?::\d+\.?)?)|(\S)/g;
 
   function normBar(b) {
     if (b === "||:") return "|:";
@@ -237,9 +237,20 @@ const GR = (() => {
       stemmed: false, timeChange: false,
     };
     let t = time;
-    const chordsForRhythm = [];
+    // figuras con duración: C:2 (blanca), C:1 (redonda), C:4 (negra), C:8 (corchea), C:2. (con puntillo), s:2 (silencio)
+    const figs = [];
+    let hasDur = false;
     for (const tk of raw.toks) {
-      const v = tk.v;
+      let v = tk.v;
+      let dur = null;
+      const dm = !tk.grp && v.match(/^(.+):(1|2|4|8)(\.?)$/);
+      if (dm) {
+        v = dm[1];
+        dur = { 1: 8, 2: 4, 4: 2, 8: 1 }[dm[2]] * (dm[3] ? 1.5 : 1);
+        if (dur % 1) { warnings.push({ num, msg: `La corchea con puntillo (:8.) no está disponible; usa un corte {…}.` }); dur = 1; }
+        hasDur = true;
+      }
+      if (/^[sS]$/.test(v) && dur) { figs.push({ rest: true, dur }); continue; }
       if (tk.other) { warnings.push({ num, msg: `No entendí el símbolo «${v}».` }); continue; }
       if (v[0] === "[") { m.mark = v.replace(/^\[|\]$/g, "").trim(); continue; }
       if (v[0] === '"' || v[0] === "“") { m.cue = v.replace(/^["“]|["”]$/g, "").trim(); continue; }
@@ -251,13 +262,23 @@ const GR = (() => {
       if (/^coda$/i.test(v)) { m.coda = true; continue; }
       if (v === "-") { m.rest = true; continue; }
       if (v === "%") { m.repeat = true; continue; }
-      if (v === "/" || v === ".") { m.slots.push(null); continue; }
+      if (v === "/" || v === ".") { m.slots.push(null); figs.push({ chord: null, dur }); continue; }
       if (v === "^" ) { const l = m.slots[m.slots.length - 1]; if (l) l.fermata = true; else m.fermataBar = true; continue; }
       const c = parseChord(v);
-      if (c) { m.slots.push(c); continue; }
+      if (c) { m.slots.push(c); figs.push({ chord: c, dur }); continue; }
       warnings.push({ num, msg: `No reconozco «${v}» como acorde.` });
     }
     m.time = t;
+    if (hasDur && m.rhythm == null) {
+      // se convierte en un corte: cada figura sin número dura un tiempo
+      const beat = t.compound ? 3 : t.den === 8 ? 1 : 2;
+      m.rhythm = figs.map((g) => {
+        const d = g.dur || beat;
+        return g.rest ? ".".repeat(d) : "o" + "-".repeat(d - 1);
+      }).join("");
+      m.slots = figs.filter((g) => !g.rest).map((g) => g.chord || null);
+      m.figPattern = true;
+    }
     if (m.rhythm != null) {
       buildRhythm(m, t, warnings);
     } else if (!m.rest && !m.repeat) {
@@ -316,10 +337,12 @@ const GR = (() => {
     p = p.replace(/[^xo.\-]/g, "");
     const E = t.eighths;
     if (p.length !== E) {
-      warnings.push({ num: m.num, msg: `El corte tiene ${p.length} corcheas y el compás ${t.label} lleva ${E}.` });
+      warnings.push({ num: m.num, msg: m.figPattern
+        ? `Las figuras suman ${p.length / 2} tiempos y el compás ${t.label} lleva ${E / 2}.`
+        : `El corte tiene ${p.length} corcheas y el compás ${t.label} lleva ${E}.` });
       p = (p + ".".repeat(E)).slice(0, E);
     }
-    const chords = m.slots.filter(Boolean);
+    const chords = m.figPattern ? m.slots : m.slots.filter(Boolean);
     m.slots = null;
     const evs = [];
     let i = 0, ci = 0;
@@ -356,7 +379,7 @@ const GR = (() => {
       }
     }
     m.events = pieces;
-    m.fermataOnLast = chords.some((c) => c.fermata);
+    m.fermataOnLast = chords.some((c) => c && c.fermata);
   }
 
   // ---------- Cifrado en pantalla ----------
@@ -560,13 +583,15 @@ const GR = (() => {
                 if (ev.dur === 3 || ev.dur === 6) svg += glyph(G.dot, x + 1.6 * S, mid - 0.5 * S, f.mus, fs);
                 continue;
               }
-              const n = { x, ev, headW: (ev.dur >= 8 ? M.wholeW : ev.dur >= 4 ? M.halfW : M.slashW) * S };
+              const long = ev.dur >= 4;
+              const n = { x, ev, headW: long ? 2.16 * S : M.slashW * S };
               placed.push(n);
-              const head = ev.dur >= 8 ? G.slashWhole : ev.dur >= 4 ? G.slashHalf : G.slash;
-              svg += glyph(head, x, mid, f.mus, fs);
+              // blanca y redonda: rombo (como en las guías del coro); negra y corchea: slash
+              if (long) svg += glyph(ev.dur >= 8 ? G.diamondWhole : G.diamondHalf, x, mid, f.mus, fs * 2);
+              else svg += glyph(G.slash, x, mid, f.mus, fs);
               if (ev.dur < 8) {
-                n.stemX = x + 0.07 * S; n.stemEnd = mid + STEM * S;
-                svg += stemDown(n.stemX, mid + 0.9 * S, n.stemEnd, S);
+                n.stemX = x + (long ? 0.1 : 0.07) * S; n.stemEnd = mid + STEM * S;
+                svg += stemDown(n.stemX, mid + (long ? 0.1 : 0.9) * S, n.stemEnd, S);
               }
               if (ev.dur === 3 || ev.dur === 6) svg += glyph(G.dot, x + n.headW + 0.45 * S, mid - 0.5 * S, f.mus, fs);
               if (ev.accent) svg += glyph(G.accentBelow, x + 0.07 * S - (M.accentW * S) / 2, mid + (STEM + 0.8) * S, f.mus, fs);
