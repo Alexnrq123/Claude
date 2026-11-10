@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guías Rítmicas del Coro</title>
+<style>
+/* Layout: barra superior fija + vista activa (biblioteca | editor a dos columnas | lector | setlists).
+   La hoja de música siempre es papel blanco; la interfaz sigue el tema del visor. */
+:root {
+  --ink: #18223a;
+  --paper: #ffffff;
+  --bg: #eef0f4;
+  --panel: #ffffff;
+  --line: #d5d9e2;
+  --muted: #5b6478;
+  --accent: #7a1f3d;
+  --accent-ink: #ffffff;
+  --accent-soft: #f4e6eb;
+  --warn: #8a5a00;
+  --warn-bg: #fff5dc;
+  --ok: #1f6b45;
+  --font-display: 'GRTxtJ', 'Comic Sans MS', cursive;
+  --font-body: 'GRTxtC', 'Arial Narrow', 'Roboto Condensed', system-ui, sans-serif;
+  --mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e6e9f2; --bg: #141821; --panel: #1d2230; --line: #2f3647; --muted: #9aa3b8;
+    --accent: #e28aa6; --accent-ink: #1a0b11; --accent-soft: #3a2230; --warn: #f2c66b; --warn-bg: #3a2f17; --ok: #7fd1a4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #e6e9f2; --bg: #141821; --panel: #1d2230; --line: #2f3647; --muted: #9aa3b8;
+  --accent: #e28aa6; --accent-ink: #1a0b11; --accent-soft: #3a2230; --warn: #f2c66b; --warn-bg: #3a2f17; --ok: #7fd1a4;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-weight: 500; font-size: 16px; line-height: 1.4; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.top { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { font-family: var(--font-display); font-size: 24px; letter-spacing: .5px; display: flex; align-items: baseline; gap: 10px; }
+.brand small { font-family: var(--font-body); font-size: 13px; color: var(--muted); letter-spacing: 0; }
+.tabs { display: flex; gap: 4px; }
+.tabs a { text-decoration: none; color: var(--muted); padding: 6px 12px; border-radius: 6px; }
+.tabs a[aria-current="page"] { color: var(--ink); background: var(--bg); font-weight: 700; }
+.prefs { margin-left: auto; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 5px 10px; cursor: pointer; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.seg-label { font-size: 13px; color: var(--muted); margin-right: 6px; }
+
+main { padding: 20px; max-width: 1500px; margin: 0 auto; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 7px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.danger { color: #b3261e; }
+.btn.small { padding: 4px 10px; font-size: 14px; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+h1, h2 { text-wrap: balance; margin: 0; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 30px; }
+h2 { font-size: 18px; }
+.muted { color: var(--muted); }
+.banner { padding: 10px 14px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); margin-bottom: 16px; font-size: 15px; }
+
+/* Biblioteca */
+.lib-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+.lib-head input { flex: 1 1 220px; max-width: 360px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+.songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.song { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
+.song .t { font-family: var(--font-display); font-size: 21px; line-height: 1.15; }
+.song .meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip.key { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.song .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.empty { background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; padding: 32px; text-align: center; display: grid; gap: 10px; justify-items: center; }
+
+/* Editor */
+.editor { display: grid; grid-template-columns: minmax(340px, 470px) 1fr; gap: 20px; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.fields label { display: grid; gap: 2px; font-size: 13px; color: var(--muted); }
+.fields label.wide { grid-column: 1 / -1; }
+.fields input, .fields select { padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 15px; }
+.tools { display: flex; flex-wrap: wrap; gap: 5px; }
+.tools button { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 13px; display: inline-flex; gap: 5px; align-items: baseline; }
+.tools button code { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 700; }
+.tools button:hover { border-color: var(--accent); }
+#cuerpo { width: 100%; min-height: 300px; resize: vertical; font-family: var(--mono); font-size: 14px; line-height: 1.7; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); tab-size: 2; }
+.status { font-size: 13px; color: var(--muted); }
+.status.ok { color: var(--ok); }
+.warns { display: grid; gap: 4px; font-size: 14px; }
+.warns div { background: var(--warn-bg); color: var(--warn); padding: 4px 9px; border-radius: 6px; }
+details.help summary { cursor: pointer; font-weight: 700; }
+.help table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+.help td { border-top: 1px solid var(--line); padding: 5px 4px; vertical-align: top; }
+.help td:first-child { font-family: var(--mono); color: var(--accent); font-weight: 700; white-space: nowrap; font-size: 13px; }
+
+/* Hoja */
+.sheet-wrap { display: grid; gap: 18px; justify-items: center; }
+.sheet { width: 100%; max-width: 860px; background: var(--paper); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 22px rgba(20,30,60,.10); border-radius: 3px; line-height: 0; }
+.sheet svg { width: 100%; height: auto; display: block; }
+.sheet .mhit { fill: transparent; cursor: pointer; }
+.sheet .mhit:hover { fill: rgba(122,31,61,.06); }
+.sheet .mhit.on { fill: rgba(122,31,61,.11); }
+.preview-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.reader-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* Corte (constructor de ritmo) */
+.rb { border: 1px solid var(--accent); border-radius: 9px; padding: 12px; display: grid; gap: 10px; background: var(--accent-soft); }
+.rb-grid { display: grid; gap: 4px; }
+.rb-cell { display: grid; gap: 3px; justify-items: center; }
+.rb-cell button { width: 100%; min-width: 34px; height: 40px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); cursor: pointer; font-size: 18px; font-weight: 700; }
+.rb-cell button[data-s="x"] { background: var(--ink); color: var(--panel); }
+.rb-cell button[data-s="o"] { background: var(--muted); color: var(--panel); }
+.rb-cell button[data-s="-"] { background: var(--panel); color: var(--ink); }
+.rb-cell span { font-size: 12px; color: var(--muted); }
+.rb input { padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); width: 100%; }
+.rb .legend { font-size: 13px; color: var(--muted); }
+
+/* Setlists */
+.sets { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 20px; align-items: start; }
+.setlist-list { display: grid; gap: 8px; }
+.setlist-list button { text-align: left; border: 1px solid var(--line); background: var(--panel); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: grid; }
+.setlist-list button[aria-current="true"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.setlist-list small { color: var(--muted); }
+.order { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: n; }
+.order li { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.order li::before { counter-increment: n; content: counter(n); font-family: var(--font-display); font-size: 20px; color: var(--accent); text-align: center; }
+.order .t { font-weight: 700; }
+.panel input[type="text"], .panel input[type="date"], .panel select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--panel); padding: 10px 16px; border-radius: 8px; z-index: 50; max-width: calc(100% - 32px); }
+.hidden { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (max-width: 980px) {
+  .editor, .sets { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  main { padding: 14px 12px; }
+  .top { padding: 8px 12px; }
+  .prefs { margin-left: 0; }
+  .fields { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Guías Rítmicas <small>del coro</small></div>
+  <nav class="tabs" aria-label="Secciones">
+    <a href="#biblioteca" id="tab-lib">Biblioteca</a>
+    <a href="#setlists" id="tab-sets">Setlists</a>
+  </nav>
+  <div class="prefs">
+    <div><span class="seg-label">Cifrado</span><span class="seg" role="group" aria-label="Cifrado">
+      <button type="button" id="cif-am" data-cif="am">C D E</button><button type="button" id="cif-lat" data-cif="lat">Do Re Mi</button></span></div>
+    <div><span class="seg-label">Letra</span><span class="seg" role="group" aria-label="Estilo de letra">
+      <button type="button" id="est-J" data-est="J">Manuscrita</button><button type="button" id="est-C" data-est="C">Limpia</button></span></div>
+  </div>
+</header>
+<main id="app"><p class="muted">Cargando…</p></main>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>/*FONTS*/</script>
+<script>/*MOTOR*/</script>
+<script>
+(() => {
+  // ================= Estado =================
+  const $ = (s, r = document) => r.querySelector(s);
+  const app = $("#app");
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem("gr:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("gr:" + k, JSON.stringify(v)); } catch {} },
+  };
+  const state = {
+    songs: {}, setlists: {}, loaded: false, slow: false,
+    canEdit: false, db: null, downloads: null, local: false,
+    prefs: { cif: LS.get("cif", "am"), est: LS.get("est", "J") },
+    view: "lib", id: null, filter: "", activeSet: null, draft: null, saveTimer: null, saveState: "",
+  };
+  const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  function toast(msg, ms = 3200) {
+    const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add("hidden"), ms);
+  }
+
+  // ================= Datos =================
+  const local = {
+    load() { state.songs = LS.get("songs", {}); state.setlists = LS.get("setlists", {}); },
+    save() { LS.set("songs", state.songs); LS.set("setlists", state.setlists); },
+  };
+  async function putSong(id, data) {
+    state.songs[id] = data;
+    if (state.db) await state.db.doc("songs/" + id).set(data);
+    else local.save();
+  }
+  async function delSong(id) {
+    delete state.songs[id];
+    if (state.db) await state.db.doc("songs/" + id).delete(); else local.save();
+  }
+  async function putSet(id, data) {
+    state.setlists[id] = data;
+    if (state.db) await state.db.doc("setlists/" + id).set(data); else local.save();
+  }
+  async function delSet(id) {
+    delete state.setlists[id];
+    if (state.db) await state.db.doc("setlists/" + id).delete(); else local.save();
+  }
+
+  async function init() {
+    await document.fonts.ready;
+    try { await Promise.all(["GRTxtJ", "GRTxtC", "GRMusJ", "GRMusC"].map((f) => document.fonts.load(`16px '${f}'`, "A"))); await document.fonts.load(`700 16px 'GRTxtC'`); } catch {}
+    paintPrefs();
+    window.addEventListener("hashchange", route);
+    route();
+    const hasClaude = !!(window.claude && window.claude.use);
+    if (!hasClaude) { startLocal(); return; }
+    const [db, user, dl] = await Promise.all([
+      window.claude.use("db").catch(() => null),
+      window.claude.use("user").catch(() => null),
+      window.claude.use("downloads").catch(() => null),
+    ]);
+    state.downloads = dl;
+    if (!db) { startLocal(); return; }
+    state.db = db;
+    state.canEdit = user ? !!(await user.isOwner()) : false;
+    let got = { songs: false, sets: false };
+    const timer = setTimeout(() => { if (!state.loaded) { state.slow = true; render(); } }, 10000);
+    const done = () => { if (got.songs && got.sets) { state.loaded = true; state.slow = false; clearTimeout(timer); } };
+    db.collection("songs").onSnapshot((snap) => {
+      const next = {};
+      snap.docs.forEach((d) => (next[d.id] = d.data()));
+      // conservar el borrador local si se está editando
+      if (state.view === "edit" && state.draft && next[state.id] && state.saveState === "pending") next[state.id] = state.songs[state.id];
+      state.songs = next;
+      if (!snap.metadata.fromCache) got.songs = true;
+      done();
+      if (state.view !== "edit") render();
+    }, () => { got.songs = true; done(); render(); });
+    db.collection("setlists").onSnapshot((snap) => {
+      const next = {};
+      snap.docs.forEach((d) => (next[d.id] = d.data()));
+      state.setlists = next;
+      if (!snap.metadata.fromCache) got.sets = true;
+      done();
+      if (state.view !== "edit") render();
+    }, () => { got.sets = true; done(); render(); });
+  }
+  function startLocal() {
+    state.local = true; state.canEdit = true; state.loaded = true;
+    local.load(); render();
+  }
+
+  // ================= Preferencias =================
+  function paintPrefs() {
+    document.querySelectorAll("[data-cif]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.cif === state.prefs.cif)));
+    document.querySelectorAll("[data-est]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.est === state.prefs.est)));
+  }
+  document.addEventListener("click", (e) => {
+    const c = e.target.closest("[data-cif]"), s = e.target.closest("[data-est]");
+    if (c) { state.prefs.cif = c.dataset.cif; LS.set("cif", state.prefs.cif); paintPrefs(); rerenderSheets(); }
+    if (s) { state.prefs.est = s.dataset.est; LS.set("est", state.prefs.est); paintPrefs(); rerenderSheets(); }
+  });
+  function rerenderSheets() { if (state.view === "edit") updatePreview(); else render(); }
+
+  // ================= Rutas =================
+  function route() {
+    const h = location.hash.replace(/^#/, "");
+    let m;
+    if ((m = h.match(/^cancion-([a-z0-9]+)$/))) { state.view = "song"; state.id = m[1]; }
+    else if ((m = h.match(/^editar-([a-z0-9]+)$/))) { state.view = "edit"; state.id = m[1]; state.draft = null; }
+    else if ((m = h.match(/^setlist-([a-z0-9]+)$/))) { state.view = "setview"; state.id = m[1]; }
+    else if (h === "setlists") { state.view = "sets"; }
+    else { state.view = "lib"; }
+    $("#tab-lib").setAttribute("aria-current", ["lib", "song", "edit"].includes(state.view) ? "page" : "false");
+    $("#tab-sets").setAttribute("aria-current", ["sets", "setview"].includes(state.view) ? "page" : "false");
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function render() {
+    if (state.view === "edit") return renderEditor();
+    if (state.view === "song") return renderSong();
+    if (state.view === "sets") return renderSets();
+    if (state.view === "setview") return renderSetView();
+    return renderLib();
+  }
+
+  function banners() {
+    let s = "";
+    if (state.local) s += `<div class="banner">Modo local: las guías se guardan solo en este navegador. Abre la app en claude.ai para guardarlas en la nube y compartirlas con el equipo.</div>`;
+    if (state.slow && !state.loaded) s += `<div class="banner">No se pudo cargar la biblioteca todavía. Revisa tu conexión; la página seguirá intentando.</div>`;
+    return s;
+  }
+  const sortedSongs = () => Object.entries(state.songs).sort((a, b) => (a[1].titulo || "").localeCompare(b[1].titulo || "", "es"));
+  const fmtTono = (t) => {
+    if (!t) return "";
+    const c = GR.parseChord(String(t).trim().split(/\s+/)[0]);
+    return c ? GR.chordText(c, state.prefs.cif) : t;
+  };
+
+  // ================= Biblioteca =================
+  function renderLib() {
+    const q = state.filter.toLowerCase();
+    const list = sortedSongs().filter(([, s]) => !q || (s.titulo + " " + (s.subtitulo || "")).toLowerCase().includes(q));
+    let h = banners();
+    h += `<div class="lib-head"><h1>Biblioteca</h1>
+      <label class="sr" for="buscar">Buscar alabanza</label>
+      <input id="buscar" type="search" placeholder="Buscar alabanza…" value="${esc(state.filter)}">
+      ${state.canEdit ? `<button class="btn primary" id="nueva" type="button">+ Nueva guía</button>` : ""}</div>`;
+    if (!state.loaded) h += `<p class="muted">Cargando biblioteca…</p>`;
+    else if (!Object.keys(state.songs).length) {
+      h += `<div class="empty"><h2>Aún no hay guías</h2><p class="muted">${state.canEdit ? "Crea la primera alabanza. La guía se arma escribiendo compases y se ve al instante como partitura." : "Cuando el líder publique guías aparecerán aquí."}</p>
+      ${state.canEdit ? `<button class="btn primary" type="button" data-act="nueva">+ Crear primera guía</button>` : ""}</div>`;
+    } else if (!list.length) h += `<p class="muted">Ninguna alabanza coincide con «${esc(state.filter)}».</p>`;
+    else {
+      h += `<div class="songs">` + list.map(([id, s]) => `
+        <article class="song">
+          <div class="t">${esc(s.titulo || "Sin título")}</div>
+          ${s.subtitulo ? `<div class="muted">${esc(s.subtitulo)}</div>` : ""}
+          <div class="meta">${s.tono ? `<span class="chip key">${esc(fmtTono(s.tono))}</span>` : ""}${s.bpm ? `<span class="chip">♩ ${esc(s.bpm)}</span>` : ""}<span class="chip">${esc(s.compas || "4/4")}</span>${s.estilo ? `<span class="chip">${esc(s.estilo)}</span>` : ""}</div>
+          <div class="acts">
+            <a class="btn small" href="#cancion-${id}">Ver guía</a>
+            <button class="btn small" type="button" data-pdf="${id}">PDF</button>
+            ${state.canEdit ? `<a class="btn small" href="#editar-${id}">Editar</a><button class="btn small" type="button" data-dup="${id}">Duplicar</button><button class="btn small danger" type="button" data-del="${id}">Eliminar</button>` : ""}
+          </div>
+          <div class="confirm hidden row" data-confirm="${id}"><span>¿Eliminar «${esc(s.titulo || "Sin título")}»?</span><button class="btn small danger" type="button" data-delok="${id}">Sí, eliminar</button><button class="btn small" type="button" data-delno="${id}">Cancelar</button></div>
+        </article>`).join("") + `</div>`;
+    }
+    app.innerHTML = h;
+    const b = $("#buscar");
+    if (b) b.addEventListener("input", () => { state.filter = b.value; const pos = b.selectionStart; renderLib(); const nb = $("#buscar"); nb.focus(); nb.setSelectionRange(pos, pos); });
+  }
+
+  const NEW_SONG = () => ({
+    titulo: "Nueva alabanza", subtitulo: "", instrumento: "Guitarra-Piano", autor: "", tono: "C", compas: "4/4", bpm: "72", estilo: "", mapa: "", porLinea: 4,
+    cuerpo: `- || C | G |\n[A] "Primera frase…" C | G/B | Am | F |\nC | G | F G {o--o----} | C* :|\n`,
+  });
+
+  app.addEventListener("click", async (e) => {
+    const t = e.target.closest("button, a"); if (!t) return;
+    const d = t.dataset;
+    if (t.id === "nueva" || d.act === "nueva") {
+      const id = uid(); const s = { ...NEW_SONG(), actualizado: Date.now() };
+      try { await putSong(id, s); location.hash = "editar-" + id; } catch (err) { toast("No se pudo crear la guía: " + (err.message || err.code)); }
+    }
+    if (d.dup) {
+      const id = uid(); const s = { ...state.songs[d.dup], titulo: (state.songs[d.dup].titulo || "") + " (copia)", actualizado: Date.now() };
+      try { await putSong(id, s); toast("Guía duplicada."); render(); } catch (err) { toast("No se pudo duplicar: " + (err.message || err.code)); }
+    }
+    if (d.del) $(`[data-confirm="${d.del}"]`).classList.remove("hidden");
+    if (d.delno) $(`[data-confirm="${d.delno}"]`).classList.add("hidden");
+    if (d.delok) { try { await delSong(d.delok); toast("Guía eliminada."); render(); } catch (err) { toast("No se pudo eliminar: " + (err.message || err.code)); } }
+    if (d.pdf) exportPDF([d.pdf], (state.songs[d.pdf].titulo || "Guía") + " - Guía.pdf");
+  });
+
+  // ================= Lector =================
+  function sheetsHTML(song, { hits = false } = {}) {
+    const r = GR.render(song, { estilo: state.prefs.est, cifrado: state.prefs.cif });
+    return { r, html: r.pages.map((p, i) => {
+      const extra = hits ? r.hits[i].map((h) => `<rect class="mhit" data-s="${h.start}" data-e="${h.end}" data-n="${h.num}" x="${h.x.toFixed(1)}" y="${h.y.toFixed(1)}" width="${h.w.toFixed(1)}" height="${h.h.toFixed(1)}"><title>Compás ${h.num}</title></rect>`).join("") : "";
+      return `<div class="sheet" role="img" aria-label="${esc(song.titulo || "Guía")} página ${i + 1}">${GR.pageSVG(p, { extra })}</div>`;
+    }).join("") };
+  }
+
+  function renderSong() {
+    const s = state.songs[state.id];
+    if (!s) { app.innerHTML = banners() + (state.loaded ? `<p>Esta guía no existe o fue eliminada. <a href="#biblioteca">Volver a la biblioteca</a></p>` : `<p class="muted">Cargando…</p>`); return; }
+    const { html } = sheetsHTML(s);
+    app.innerHTML = banners() + `<div class="reader-head"><a class="btn" href="#biblioteca">← Biblioteca</a>
+      <div class="row">${state.canEdit ? `<a class="btn" href="#editar-${state.id}">Editar</a>` : ""}<button class="btn primary" type="button" data-pdf="${state.id}">Descargar PDF</button></div></div>
+      <div class="sheet-wrap">${html}</div>`;
+  }
+
+  // ================= Editor =================
+  const TOOLS = [
+    ["|", " | ", "Barra de compás"], ["||", " || ", "Doble barra"], ["|:", " |: ", "Inicio de repetición"], [":|", " :| ", "Fin de repetición"], ["|]", " |]", "Barra final"],
+    ["1.", "1. ", "Casilla 1"], ["2.", "2. ", "Casilla 2"], ["[A]", "[A] ", "Sección (caja)"], ['"…"', '"" ', "Pista de letra"],
+    ["*", "*", "Sostener acorde (rombo / parada)"], ["^", "^", "Calderón"], ["-", " - ", "Silencio de compás"], ["%", " % ", "Repetir compás anterior"],
+    ["(x2)", "(x2) ", "Indicación de texto"], ["segno", "segno ", "Signo de segno"], ["coda", "coda ", "Signo de coda"],
+  ];
+  const HELP = [
+    ["C | G | Am | F", "Un acorde por compás: se dibujan 4 barras (/ / / /)."],
+    ["Am F", "Dos acordes: uno en el tiempo 1 y otro en el 3."],
+    ["C / G/B Am", "Un acorde o una barra por tiempo. «/» o «.» es un tiempo sin cambio."],
+    ["Em F#m G A", "Un acorde en cada tiempo: se dibujan con plica, como en una partitura."],
+    ["D/E*", "Asterisco: el acorde se sostiene (rombo). Sirve para paradas."],
+    ["Amaj7*^", "Sostener con calderón (final)."],
+    ["Em F#m G A {x.x.x.x-}", "Corte en corcheas: x golpe acentuado, o golpe, - sostener, . silencio. Los acordes se asignan a los golpes en orden."],
+    ["{-------- }", "Si un corte empieza con «-», se liga con el último golpe del compás anterior (anticipación)."],
+    ["|: … :|", "Repetición. 1. y 2. marcan las casillas."],
+    ['[B] "Tuyo soy"', "Caja de sección y pista de letra bajo el pentagrama."],
+    ["(x3)  (Al Coda)", "Texto sobre el compás."],
+    ["3/4", "Cambio de compás desde ese compás."],
+    ["Nueva línea", "Cada línea de texto empieza una línea nueva en la partitura (máximo según «Compases por línea»)."],
+    ["# comentario", "Las líneas que empiezan con # no se dibujan."],
+  ];
+
+  function renderEditor() {
+    const id = state.id;
+    if (!state.canEdit) { app.innerHTML = banners() + `<p>Solo el líder puede editar las guías. <a href="#cancion-${id}">Ver la guía</a></p>`; return; }
+    const s = state.songs[id];
+    if (!s) { app.innerHTML = banners() + (state.loaded ? `<p>Esta guía no existe. <a href="#biblioteca">Volver</a></p>` : `<p class="muted">Cargando…</p>`); return; }
+    if (!state.draft) state.draft = { ...NEW_SONG(), ...s };
+    const d = state.draft;
+    const f = (k, label, extra = "", cls = "") => `<label class="${cls}" for="f-${k}">${label}<input id="f-${k}" data-k="${k}" type="text" value="${esc(d[k] ?? "")}" ${extra}></label>`;
+    app.innerHTML = banners() + `
+    <div class="editor">
+      <section class="panel" aria-label="Editor">
+        <div class="row" style="justify-content:space-between"><a class="btn small" href="#biblioteca">← Biblioteca</a><span class="status" id="status">${esc(state.saveState === "saved" ? "Guardado" : "")}</span></div>
+        <div class="fields">
+          ${f("titulo", "Título", "", "wide")}
+          ${f("subtitulo", "Subtítulo (versión / artista)")}
+          ${f("instrumento", "Instrumento (arriba a la izquierda)")}
+          ${f("autor", "Transcripción / autor", "", "wide")}
+          ${f("tono", "Tono (ej. A, F#m, Sol)")}
+          <label for="f-compas">Compás<select id="f-compas" data-k="compas">${["4/4", "3/4", "6/8", "2/4", "12/8"].map((c) => `<option ${d.compas === c ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+          ${f("bpm", "BPM", 'inputmode="numeric"')}
+          ${f("estilo", "Estilo / feel (ej. Balada, Pop 8vos)")}
+          <label for="f-porLinea">Compases por línea<select id="f-porLinea" data-k="porLinea">${[2, 3, 4, 5, 6].map((n) => `<option ${+d.porLinea === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+          ${f("mapa", "Mapa (vacío = se arma con las secciones)", 'placeholder="Intro – A – B – A – B x2 – Final"', "wide")}
+        </div>
+        <div>
+          <div class="row" style="justify-content:space-between;margin-bottom:6px"><strong>Compases</strong><button class="btn small primary" type="button" id="open-rb">+ Corte / figura rítmica</button></div>
+          <div class="tools" role="toolbar" aria-label="Insertar símbolo">${TOOLS.map(([lbl, ins, tip], i) => `<button type="button" data-ins="${i}" title="${esc(tip)}"><code>${esc(lbl)}</code>${esc(tip.split(" (")[0])}</button>`).join("")}</div>
+        </div>
+        <div id="rb" class="rb hidden"></div>
+        <label class="sr" for="cuerpo">Texto de la guía</label>
+        <textarea id="cuerpo" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(d.cuerpo)}</textarea>
+        <div class="warns" id="warns"></div>
+        <details class="help" open><summary>Cómo se escribe</summary><table>${HELP.map(([a, b]) => `<tr><td>${esc(a)}</td><td>${esc(b)}</td></tr>`).join("")}</table>
+          <p class="muted" style="font-size:14px">Toca un compás en la partitura para ir a su texto. Acepta cifrado americano (C, F#m7) o latino (Do, Fa#m7).</p></details>
+      </section>
+      <section aria-label="Vista previa">
+        <div class="preview-head"><h2>Vista previa</h2><div class="row"><a class="btn small" href="#cancion-${id}">Ver a pantalla completa</a><button class="btn small primary" type="button" id="ed-pdf">Descargar PDF</button></div></div>
+        <div class="sheet-wrap" id="preview"></div>
+      </section>
+    </div>`;
+
+    const ta = $("#cuerpo");
+    app.querySelectorAll("[data-k]").forEach((el) => el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => { d[el.dataset.k] = el.value; changed(); }));
+    ta.addEventListener("input", () => { d.cuerpo = ta.value; changed(); });
+    ["keyup", "click", "select"].forEach((ev) => ta.addEventListener(ev, highlightCaret));
+    app.querySelectorAll("[data-ins]").forEach((b) => b.addEventListener("click", () => {
+      const [lbl, ins] = TOOLS[+b.dataset.ins];
+      insertAt(ta, ins, lbl === '"…"' ? 1 : lbl === "[A]" ? 2 : 0);
+    }));
+    $("#open-rb").addEventListener("click", () => openRhythm());
+    $("#ed-pdf").addEventListener("click", async () => { await flushSave(); exportPDF([id], (d.titulo || "Guía") + " - Guía.pdf"); });
+    $("#preview").addEventListener("click", (e) => {
+      const r = e.target.closest(".mhit"); if (!r) return;
+      ta.focus(); ta.setSelectionRange(+r.dataset.s, +r.dataset.e);
+      const before = ta.value.slice(0, +r.dataset.s).split("\n").length - 1;
+      ta.scrollTop = Math.max(0, before * 23.8 - 60);
+      highlightCaret();
+    });
+    updatePreview();
+  }
+
+  function insertAt(ta, text, backFromEnd = 0) {
+    const a = ta.selectionStart, b = ta.selectionEnd;
+    ta.setRangeText(text, a, b, "end");
+    if (backFromEnd) { const p = a + text.length - backFromEnd - (text.endsWith(" ") ? 1 : 0); ta.setSelectionRange(p, p); }
+    ta.focus();
+    ta.dispatchEvent(new Event("input"));
+  }
+
+  let prevTimer;
+  function changed() {
+    state.saveState = "pending";
+    const st = $("#status"); if (st) { st.textContent = "Cambios sin guardar…"; st.className = "status"; }
+    clearTimeout(prevTimer); prevTimer = setTimeout(updatePreview, 120);
+    clearTimeout(state.saveTimer); state.saveTimer = setTimeout(flushSave, 1500);
+  }
+  async function flushSave() {
+    clearTimeout(state.saveTimer);
+    if (state.saveState !== "pending" || !state.draft) return;
+    const id = state.id, data = { ...state.draft, actualizado: Date.now() };
+    state.saveState = "saving";
+    try {
+      await putSong(id, data);
+      if (state.saveState === "saving") state.saveState = "saved";
+      const st = $("#status"); if (st && state.saveState === "saved") { st.textContent = "Guardado"; st.className = "status ok"; }
+    } catch (err) {
+      state.saveState = "pending";
+      const st = $("#status"); if (st) { st.textContent = "No se pudo guardar. " + (err.code === "quota_exceeded" ? "La biblioteca está llena." : "Reintentando…"); }
+      state.saveTimer = setTimeout(flushSave, 4000);
+    }
+  }
+  window.addEventListener("hashchange", () => { if (state.saveState === "pending") flushSave(); });
+
+  function updatePreview() {
+    const pv = $("#preview"); if (!pv || !state.draft) return;
+    const { r, html } = sheetsHTML(state.draft, { hits: true });
+    pv.innerHTML = html;
+    const w = $("#warns");
+    w.innerHTML = r.parsed.warnings.slice(0, 8).map((x) => `<div>Compás ${x.num}: ${esc(x.msg)}</div>`).join("");
+    highlightCaret();
+  }
+  function highlightCaret() {
+    const ta = $("#cuerpo"); if (!ta) return;
+    const p = ta.selectionStart;
+    let best = null;
+    app.querySelectorAll(".mhit").forEach((r) => {
+      r.classList.remove("on");
+      const s = +r.dataset.s, e = +r.dataset.e;
+      if (p >= s && p <= e + 1) best = r;
+    });
+    if (best) best.classList.add("on");
+  }
+
+  // ---------- Constructor de cortes ----------
+  function openRhythm() {
+    const box = $("#rb");
+    const t = GR.parseTime(state.draft.compas);
+    const E = t.eighths;
+    const labels = [];
+    for (let i = 0; i < E; i++) labels.push(t.compound ? (i % 3 === 0 ? String(i / 3 + 1) : "·") : (i % 2 === 0 ? String(i / 2 + 1) : "y"));
+    const cells = Array(E).fill(".");
+    cells[0] = "x";
+    const SYM = { x: "›", o: "●", "-": "—", ".": "" };
+    const draw = () => {
+      box.innerHTML = `<div class="row" style="justify-content:space-between"><strong>Corte en corcheas (${t.label})</strong><button class="btn small" type="button" id="rb-close">Cerrar</button></div>
+        <div class="legend">Toca cada casilla para cambiar: <b>›</b> golpe acentuado · <b>●</b> golpe · <b>—</b> sostener · vacío = silencio.</div>
+        <div class="rb-grid" style="grid-template-columns:repeat(${E},1fr)">${cells.map((c, i) => `<div class="rb-cell"><button type="button" data-cell="${i}" data-s="${c}" aria-label="Corchea ${i + 1}: ${c === "x" ? "golpe acentuado" : c === "o" ? "golpe" : c === "-" ? "sostener" : "silencio"}">${SYM[c]}</button><span>${labels[i]}</span></div>`).join("")}</div>
+        <label for="rb-ch">Acordes de los golpes, en orden</label><input id="rb-ch" type="text" placeholder="Em F#m G A" value="${esc(box.dataset.ch || "")}">
+        <div class="row"><code id="rb-out" style="font-family:var(--mono)"></code><button class="btn small primary" type="button" id="rb-ins">Insertar compás</button></div>`;
+      const out = () => { const ch = $("#rb-ch").value.trim(); return `${ch ? ch + " " : ""}{${cells.join("")}} | `; };
+      $("#rb-out").textContent = out();
+      $("#rb-ch").addEventListener("input", (e) => { box.dataset.ch = e.target.value; $("#rb-out").textContent = out(); });
+      box.querySelectorAll("[data-cell]").forEach((b) => b.addEventListener("click", () => {
+        const i = +b.dataset.cell; const order = ["x", "o", "-", "."];
+        let n = order[(order.indexOf(cells[i]) + 1) % 4];
+        if (n === "-" && i === 0) n = "-"; // permitido: liga con el compás anterior
+        cells[i] = n; draw(); box.querySelector(`[data-cell="${i}"]`).focus();
+      }));
+      $("#rb-close").addEventListener("click", () => box.classList.add("hidden"));
+      $("#rb-ins").addEventListener("click", () => { insertAt($("#cuerpo"), out()); box.classList.add("hidden"); });
+    };
+    box.classList.remove("hidden");
+    draw();
+  }
+
+  // ================= Setlists =================
+  function renderSets() {
+    const sets = Object.entries(state.setlists).sort((a, b) => (b[1].fecha || "").localeCompare(a[1].fecha || ""));
+    if (!state.activeSet || !state.setlists[state.activeSet]) state.activeSet = sets[0]?.[0] || null;
+    const cur = state.activeSet ? state.setlists[state.activeSet] : null;
+    let h = banners() + `<div class="lib-head"><h1>Setlists</h1>${state.canEdit ? `<button class="btn primary" type="button" id="new-set">+ Nuevo setlist</button>` : ""}</div>`;
+    if (!state.loaded) { app.innerHTML = h + `<p class="muted">Cargando…</p>`; return; }
+    if (!sets.length) {
+      app.innerHTML = h + `<div class="empty"><h2>Sin setlists</h2><p class="muted">${state.canEdit ? "Arma la lista del domingo con las guías de la biblioteca." : "Aún no hay setlists publicados."}</p></div>`;
+      bindSets(); return;
+    }
+    h += `<div class="sets"><nav class="setlist-list" aria-label="Setlists">${sets.map(([id, s]) => `<button type="button" data-set="${id}" aria-current="${id === state.activeSet}"><strong>${esc(s.nombre || "Sin nombre")}</strong><small>${esc(fmtFecha(s.fecha))} · ${(s.canciones || []).length} alabanzas</small></button>`).join("")}</nav>`;
+    const songs = (cur.canciones || []).filter((id) => state.songs[id]);
+    h += `<section class="panel">`;
+    if (state.canEdit) {
+      h += `<div class="fields"><label for="s-nombre">Nombre<input id="s-nombre" type="text" value="${esc(cur.nombre || "")}"></label><label for="s-fecha">Fecha<input id="s-fecha" type="date" value="${esc(cur.fecha || "")}"></label></div>`;
+    } else h += `<h2>${esc(cur.nombre || "Sin nombre")}</h2><div class="muted">${esc(fmtFecha(cur.fecha))}</div>`;
+    h += songs.length ? `<ol class="order">${songs.map((id, i) => { const s = state.songs[id]; return `<li><div><div class="t">${esc(s.titulo)}</div><div class="muted" style="font-size:13px">${esc([fmtTono(s.tono), s.bpm ? "♩ " + s.bpm : "", s.compas].filter(Boolean).join(" · "))}</div></div>
+      <div class="row">${state.canEdit ? `<button class="btn small" type="button" data-up="${i}" ${i === 0 ? "disabled" : ""} aria-label="Subir">↑</button><button class="btn small" type="button" data-down="${i}" ${i === songs.length - 1 ? "disabled" : ""} aria-label="Bajar">↓</button><button class="btn small danger" type="button" data-rm="${i}" aria-label="Quitar">Quitar</button>` : `<a class="btn small" href="#cancion-${id}">Ver</a>`}</div></li>`; }).join("")}</ol>` : `<p class="muted">Este setlist todavía no tiene alabanzas.</p>`;
+    if (state.canEdit) {
+      const avail = sortedSongs().filter(([id]) => !songs.includes(id));
+      h += `<div class="row"><label class="sr" for="s-add">Agregar alabanza</label><select id="s-add"><option value="">Agregar alabanza…</option>${avail.map(([id, s]) => `<option value="${id}">${esc(s.titulo)}</option>`).join("")}</select></div>`;
+    }
+    h += `<div class="row"><a class="btn" href="#setlist-${state.activeSet}">Ver todas las guías</a><button class="btn primary" type="button" id="set-pdf" ${songs.length ? "" : "disabled"}>PDF del setlist</button>
+      ${state.canEdit ? `<button class="btn danger" type="button" id="set-del">Eliminar setlist</button><span class="hidden row" id="set-del-c">¿Seguro? <button class="btn small danger" type="button" id="set-del-ok">Sí, eliminar</button></span>` : ""}</div></section></div>`;
+    app.innerHTML = h;
+    bindSets();
+  }
+  function fmtFecha(f) {
+    if (!f) return "Sin fecha";
+    const d = new Date(f + "T12:00:00");
+    return isNaN(d) ? f : d.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  }
+  function bindSets() {
+    const id = state.activeSet, cur = id && state.setlists[id];
+    const save = (patch) => putSet(id, { ...state.setlists[id], ...patch }).catch((err) => toast("No se pudo guardar: " + (err.message || err.code)));
+    $("#new-set")?.addEventListener("click", async () => {
+      const nid = uid(); const sunday = new Date(); sunday.setDate(sunday.getDate() + ((7 - sunday.getDay()) % 7));
+      await putSet(nid, { nombre: "Culto del domingo", fecha: sunday.toISOString().slice(0, 10), canciones: [] }).catch((err) => toast("No se pudo crear: " + (err.message || err.code)));
+      state.activeSet = nid; renderSets();
+    });
+    app.querySelectorAll("[data-set]").forEach((b) => b.addEventListener("click", () => { state.activeSet = b.dataset.set; renderSets(); }));
+    if (!cur) return;
+    const list = (cur.canciones || []).filter((x) => state.songs[x]);
+    let nt;
+    $("#s-nombre")?.addEventListener("input", (e) => { clearTimeout(nt); const v = e.target.value; state.setlists[id].nombre = v; nt = setTimeout(() => save({ nombre: v }), 900); });
+    $("#s-fecha")?.addEventListener("change", (e) => { save({ fecha: e.target.value }); state.setlists[id].fecha = e.target.value; renderSets(); });
+    $("#s-add")?.addEventListener("change", async (e) => { if (!e.target.value) return; await save({ canciones: [...list, e.target.value] }); renderSets(); });
+    app.querySelectorAll("[data-up],[data-down],[data-rm]").forEach((b) => b.addEventListener("click", async () => {
+      const l = [...list];
+      if (b.dataset.up) { const i = +b.dataset.up; [l[i - 1], l[i]] = [l[i], l[i - 1]]; }
+      if (b.dataset.down) { const i = +b.dataset.down; [l[i + 1], l[i]] = [l[i], l[i + 1]]; }
+      if (b.dataset.rm) l.splice(+b.dataset.rm, 1);
+      await save({ canciones: l }); renderSets();
+    }));
+    $("#set-pdf")?.addEventListener("click", () => exportPDF(list, (cur.nombre || "Setlist") + " " + (cur.fecha || "") + ".pdf"));
+    $("#set-del")?.addEventListener("click", () => $("#set-del-c").classList.remove("hidden"));
+    $("#set-del-ok")?.addEventListener("click", async () => { await delSet(id).catch(() => {}); state.activeSet = null; renderSets(); });
+  }
+
+  function renderSetView() {
+    const cur = state.setlists[state.id];
+    if (!cur) { app.innerHTML = banners() + (state.loaded ? `<p>Este setlist no existe. <a href="#setlists">Volver</a></p>` : `<p class="muted">Cargando…</p>`); return; }
+    const list = (cur.canciones || []).filter((x) => state.songs[x]);
+    app.innerHTML = banners() + `<div class="reader-head"><div><a class="btn" href="#setlists">← Setlists</a></div>
+      <div><h1>${esc(cur.nombre || "Setlist")}</h1><div class="muted">${esc(fmtFecha(cur.fecha))} · ${list.map((id, i) => `${i + 1}. ${esc(state.songs[id].titulo)}`).join("  ")}</div></div>
+      <button class="btn primary" type="button" id="sv-pdf" ${list.length ? "" : "disabled"}>PDF del setlist</button></div>
+      <div class="sheet-wrap">${list.map((id) => sheetsHTML(state.songs[id]).html).join("")}</div>`;
+    $("#sv-pdf").addEventListener("click", () => exportPDF(list, (cur.nombre || "Setlist") + " " + (cur.fecha || "") + ".pdf"));
+  }
+
+  // ================= PDF =================
+  let exporting = false;
+  async function exportPDF(ids, filename) {
+    if (exporting) return;
+    if (!window.jspdf) { toast("No se pudo cargar el generador de PDF. Revisa tu conexión y recarga."); return; }
+    exporting = true;
+    toast("Preparando PDF…", 60000);
+    try {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: "pt", format: "letter", compress: true });
+      let first = true;
+      for (const id of ids) {
+        const song = state.view === "edit" && id === state.id && state.draft ? state.draft : state.songs[id];
+        if (!song) continue;
+        const r = GR.render(song, { estilo: state.prefs.est, cifrado: state.prefs.cif });
+        for (const p of r.pages) {
+          const png = await rasterize(GR.pageSVG(p, { embedFonts: true }), 3);
+          if (!first) pdf.addPage("letter");
+          pdf.addImage(png, "PNG", 0, 0, 612, 792, undefined, "FAST");
+          first = false;
+        }
+      }
+      const data = pdf.output("arraybuffer");
+      if (!state.downloads) {
+        if (state.local) {
+          const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+          const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+          toast("PDF generado.");
+        } else toast("La descarga no está disponible en esta vista. Abre la app en claude.ai para descargar el PDF.");
+        return;
+      }
+      await state.downloads.save({ filename: filename.replace(/[\\/:*?"<>|]/g, "-"), data });
+      toast("PDF listo para imprimir.");
+    } catch (err) {
+      const c = err && err.code;
+      if (c === "declined") toast("Descarga cancelada.");
+      else if (c === "rate_limited") toast("Ya hay una descarga esperando confirmación.");
+      else toast("No se pudo generar el PDF" + (err && err.message ? ": " + err.message : "."));
+    } finally { exporting = false; }
+  }
+  function rasterize(svg, scale) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+      const img = new Image();
+      img.onload = async () => {
+        try { if (img.decode) await img.decode(); } catch {}
+        // pequeña espera para que las fuentes incrustadas terminen de cargar dentro de la imagen
+        await new Promise((r) => setTimeout(r, 60));
+        const c = document.createElement("canvas");
+        c.width = GR.PW * scale; c.height = GR.PH * scale;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("no se pudo dibujar la página")); };
+      img.src = url;
+    });
+  }
+
+  // fuentes de la app (mismas que la partitura)
+  const st = document.createElement("style"); st.textContent = GR.fontFaceCSS(); document.head.appendChild(st);
+  init();
+})();
+</script>
+</body>
+</html>
