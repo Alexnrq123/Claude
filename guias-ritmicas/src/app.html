@@ -395,14 +395,18 @@ details.help summary { cursor: pointer; font-weight: 700; }
     ["Am F", "Dos acordes: uno en el tiempo 1 y otro en el 3."],
     ["C / G/B Am", "Un acorde o una barra por tiempo. «/» o «.» es un tiempo sin cambio."],
     ["Em F#m G A", "Un acorde en cada tiempo: se dibujan con plica, como en una partitura."],
-    ["C:2 G:2", "Figuras con número: :1 redonda, :2 blanca, :4 negra, :8 corchea. Agrega punto para puntillo (C:2.). s:2 es un silencio de blanca."],
+    ["C:2 G:2", "Figuras con número: :1 redonda, :2 blanca, :4 negra, :8 corchea, :16 semicorchea. Agrega punto para puntillo (C:2., D:8.). s:2 es un silencio de blanca."],
     ["C:2. / ", "Las figuras sin número duran un tiempo. Ej.: C:2. / = blanca con puntillo + una negra."],
     ["D/E*", "Asterisco: el acorde se sostiene todo el compás (rombo). Sirve para paradas."],
     ["Amaj7*^", "Sostener con calderón (final)."],
     ["Em F#m G A {x.x.x.x-}", "Corte en corcheas: x golpe acentuado, o golpe, - sostener, . silencio. Los acordes se asignan a los golpes en orden."],
+    ["{o--o--o---------}", "Corte en semicorcheas: 16 casillas en 4/4 (4 por tiempo). Ej.: corchea con puntillo + semicorchea ligada."],
+    ["A G/B / A/C# {…}", "Dentro de un corte, «/» es un golpe sin cambio de acorde."],
     ["{-------- }", "Si un corte empieza con «-», se liga con el último golpe del compás anterior (anticipación)."],
     ["|: … :|", "Repetición. 1. y 2. marcan las casillas."],
     ['[B] "Tuyo soy"', "Caja de sección y pista de letra bajo el pentagrama."],
+    ["[D Consagrado a ti]", "Caja de sección con título (para medleys)."],
+    ["tono=C", "Cambio de tonalidad desde ese compás (con becuadros)."],
     ["(x3)  (Al Coda)", "Texto sobre el compás."],
     ["3/4", "Cambio de compás desde ese compás."],
     ["Nueva línea", "Cada línea de texto empieza una línea nueva en la partitura (máximo según «Compases por línea»)."],
@@ -430,7 +434,7 @@ details.help summary { cursor: pointer; font-weight: 700; }
           <label for="f-compas">Compás<select id="f-compas" data-k="compas">${["4/4", "3/4", "6/8", "2/4", "12/8"].map((c) => `<option ${d.compas === c ? "selected" : ""}>${c}</option>`).join("")}</select></label>
           ${f("bpm", "BPM", 'inputmode="numeric"')}
           ${f("estilo", "Estilo / feel (ej. Balada, Pop 8vos)")}
-          <label for="f-porLinea">Compases por línea<select id="f-porLinea" data-k="porLinea">${[2, 3, 4, 5, 6].map((n) => `<option ${+d.porLinea === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+          <label for="f-porLinea">Compases por línea<select id="f-porLinea" data-k="porLinea">${[2, 3, 4, 5, 6, 7, 8].map((n) => `<option ${+d.porLinea === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
           ${f("mapa", "Mapa (vacío = se arma con las secciones)", 'placeholder="Intro – A – B – A – B x2 – Final"', "wide")}
         </div>
         <div>

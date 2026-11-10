@@ -34,7 +34,7 @@ const GR = (() => {
   const G = {
     gClef: "\uE050", sharp: "\uE262", flat: "\uE260", natural: "\uE261",
     slash: "\uE101", slashWhole: "\uE102", slashHalf: "\uE103", diamondWhole: "\uE0D8", diamondHalf: "\uE0D9",
-    restWhole: "\uE4E3", restHalf: "\uE4E4", restQuarter: "\uE4E5", rest8: "\uE4E6",
+    restWhole: "\uE4E3", restHalf: "\uE4E4", restQuarter: "\uE4E5", rest8: "\uE4E6", rest16: "\uE4E7", flag16Down: "\uE243",
     flag8Up: "\uE240", flag8Down: "\uE241", dot: "\uE1E7", accentBelow: "\uE4A1", fermata: "\uE4C0",
     segno: "\uE047", coda: "\uE048", rep1: "\uE500", metQ: "\uECA5",
   };
@@ -224,8 +224,22 @@ const GR = (() => {
         }
       }
     }
-    // secciones para el mapa
-    const sections = measures.filter((m) => m.mark).map((m) => m.mark);
+    // tonalidad vigente en cada compás
+    let key = keyCount(song.tono);
+    for (const m of measures) {
+      if (m.keyTo != null) {
+        const nk = keyCount(m.keyTo);
+        if (nk !== key) { m.keyChange = true; m.prevKey = key; key = nk; }
+      }
+      m.key = key;
+    }
+    // caja de sección + título opcional: [A Digno es el Señor]
+    for (const m of measures) if (m.mark) {
+      const sp = m.mark.indexOf(" ");
+      m.markLabel = sp > 0 ? m.mark.slice(0, sp) : m.mark;
+      m.markTitle = sp > 0 ? m.mark.slice(sp + 1).trim() : "";
+    }
+    const sections = measures.filter((m) => m.mark).map((m) => (m.markTitle ? `${m.markLabel} (${m.markTitle})` : m.markLabel));
     return { measures, warnings, time: baseTime, sections };
   }
 
@@ -243,13 +257,14 @@ const GR = (() => {
     for (const tk of raw.toks) {
       let v = tk.v;
       let dur = null;
-      const dm = !tk.grp && v.match(/^(.+):(1|2|4|8)(\.?)$/);
+      const dm = !tk.grp && v.match(/^(.+):(16|1|2|4|8)(\.?)$/);
       if (dm) {
         v = dm[1];
-        dur = { 1: 8, 2: 4, 4: 2, 8: 1 }[dm[2]] * (dm[3] ? 1.5 : 1);
-        if (dur % 1) { warnings.push({ num, msg: `La corchea con puntillo (:8.) no está disponible; usa un corte {…}.` }); dur = 1; }
+        dur = { 1: 16, 2: 8, 4: 4, 8: 2, 16: 1 }[dm[2]] * (dm[3] ? 1.5 : 1);
+        if (dur % 1) { warnings.push({ num, msg: `La semicorchea con puntillo no está disponible.` }); dur = 1; }
         hasDur = true;
       }
+      if (/^tono=/i.test(v)) { m.keyTo = v.slice(5); continue; }
       if (/^[sS]$/.test(v) && dur) { figs.push({ rest: true, dur }); continue; }
       if (tk.other) { warnings.push({ num, msg: `No entendí el símbolo «${v}».` }); continue; }
       if (v[0] === "[") { m.mark = v.replace(/^\[|\]$/g, "").trim(); continue; }
@@ -271,13 +286,14 @@ const GR = (() => {
     m.time = t;
     if (hasDur && m.rhythm == null) {
       // se convierte en un corte: cada figura sin número dura un tiempo
-      const beat = t.compound ? 3 : t.den === 8 ? 1 : 2;
+      const beat = t.compound ? 6 : t.den === 8 ? 2 : 4; // en semicorcheas
       m.rhythm = figs.map((g) => {
         const d = g.dur || beat;
         return g.rest ? ".".repeat(d) : "o" + "-".repeat(d - 1);
       }).join("");
       m.slots = figs.filter((g) => !g.rest).map((g) => g.chord || null);
       m.figPattern = true;
+      m.grid16 = true;
     }
     if (m.rhythm != null) {
       buildRhythm(m, t, warnings);
@@ -300,27 +316,31 @@ const GR = (() => {
     return m;
   }
 
-  // ---------- Ritmo en corcheas ----------
+  // ---------- Ritmo (internamente en semicorcheas) ----------
   function validDur(start, d, t, rest) {
-    const E = t.eighths;
-    if (start + d > E) return false;
+    const U = t.eighths * 2;
+    if (start + d > U) return false;
     if (t.compound) {
-      if (d === E) return start === 0;
+      if (d === U) return start === 0;
+      if (d === 12) return start % 12 === 0;
       if (d === 6) return start % 6 === 0;
-      if (d === 3) return start % 3 === 0;
-      if (d === 2) return !rest && start % 3 === 0;
+      if (d === 4) return !rest && start % 6 === 0;
+      if (d === 3) return false;
+      if (d === 2) return start % 2 === 0;
       return d === 1;
     }
-    if (d === 8) return start === 0 && E === 8;
-    if (d === 6) return !rest && (start === 0 || (start === 2 && E === 8));
-    if (d === 4) return E === 8 ? start % 4 === 0 : start % 2 === 0;
-    if (d === 3) return !rest && start % 2 === 0;
+    if (d === 16) return start === 0 && U === 16;
+    if (d === 12) return !rest && (start === 0 || (start === 4 && U === 16));
+    if (d === 8) return U === 16 ? start % 8 === 0 : start % 4 === 0;
+    if (d === 6) return !rest && start % 4 === 0;
+    if (d === 4) return start % 4 === 0;
+    if (d === 3) return !rest && (start % 4 === 0 || start % 4 === 1);
     if (d === 2) return start % 2 === 0;
     return d === 1;
   }
   function splitDur(start, len, t, rest) {
     const out = [];
-    const opts = [8, 6, 4, 3, 2, 1];
+    const opts = [16, 12, 8, 6, 4, 3, 2, 1];
     while (len > 0) {
       let d = 1;
       for (const o of opts) if (o <= len && validDur(start, o, t, rest)) { d = o; break; }
@@ -335,14 +355,16 @@ const GR = (() => {
     const bad = p.replace(/[xo.\-]/g, "");
     if (bad) warnings.push({ num: m.num, msg: `El corte solo usa x (golpe acentuado), o (golpe), - (sostener) y . (silencio).` });
     p = p.replace(/[^xo.\-]/g, "");
-    const E = t.eighths;
-    if (p.length !== E) {
-      warnings.push({ num: m.num, msg: m.figPattern
-        ? `Las figuras suman ${p.length / 2} tiempos y el compás ${t.label} lleva ${E / 2}.`
-        : `El corte tiene ${p.length} corcheas y el compás ${t.label} lleva ${E}.` });
-      p = (p + ".".repeat(E)).slice(0, E);
+    const E = t.eighths, U = E * 2;
+    if (!m.grid16 && p.length !== U) {
+      // cuadrícula de corcheas: cada casilla vale dos semicorcheas
+      if (p.length !== E) warnings.push({ num: m.num, msg: `El corte tiene ${p.length} casillas: en ${t.label} usa ${E} (corcheas) o ${U} (semicorcheas).` });
+      p = [...p].map((c) => (c === "x" || c === "o" ? c + "-" : c + c)).join("");
+    } else if (m.grid16 && p.length !== U) {
+      warnings.push({ num: m.num, msg: `Las figuras suman ${p.length / 4} tiempos y el compás ${t.label} lleva ${U / 4}.` });
     }
-    const chords = m.figPattern ? m.slots : m.slots.filter(Boolean);
+    if (p.length !== U) p = (p + ".".repeat(U)).slice(0, U);
+    const chords = m.slots;
     m.slots = null;
     const evs = [];
     let i = 0, ci = 0;
@@ -351,24 +373,23 @@ const GR = (() => {
       evs.push({ kind: "note", start: 0, len: k, accent: false, chord: null, tieIn: true });
       m.tieIn = true; i = k;
     }
-    while (i < E) {
+    while (i < U) {
       const ch = p[i];
       if (ch === "x" || ch === "o") {
-        let k = i + 1; while (k < E && p[k] === "-") k++;
+        let k = i + 1; while (k < U && p[k] === "-") k++;
         evs.push({ kind: "note", start: i, len: k - i, accent: ch === "x", chord: chords[ci++] || null });
         i = k;
       } else if (ch === ".") {
-        let k = i + 1; while (k < E && p[k] === ".") k++;
+        let k = i + 1; while (k < U && p[k] === ".") k++;
         evs.push({ kind: "rest", start: i, len: k - i });
         i = k;
       } else i++;
     }
     if (ci < chords.length) warnings.push({ num: m.num, msg: `Sobran acordes: hay ${chords.length} y el corte tiene ${ci} golpes.` });
-    // dividir en figuras escribibles
     const pieces = [];
     for (const ev of evs) {
       if (ev.kind === "rest") {
-        if (ev.len === E) { pieces.push({ kind: "rest", start: 0, dur: E, whole: true }); continue; }
+        if (ev.len === U) { pieces.push({ kind: "rest", start: 0, dur: U, whole: true }); continue; }
         for (const s of splitDur(ev.start, ev.len, t, true)) pieces.push({ kind: "rest", ...s });
       } else {
         const parts = splitDur(ev.start, ev.len, t, false);
@@ -379,7 +400,6 @@ const GR = (() => {
       }
     }
     m.events = pieces;
-    m.fermataOnLast = chords.some((c) => c && c.fermata);
   }
 
   // ---------- Cifrado en pantalla ----------
@@ -437,18 +457,93 @@ const GR = (() => {
     const perLine = Math.max(1, Math.min(8, +song.porLinea || 4));
     const fs = 4 * S; // tamaño de fuente musical
     const chordF = st === "J" ? 2.55 * S : 2.5 * S;
-    const ks = keyCount(song.tono);
-    const accW = (ks >= 0 ? M.sharpW : M.flatW) * S + 0.25 * S;
-    const keyW = Math.abs(ks) * accW;
+    const SH = [0, 1.5, -0.5, 1, 2.5, 0.5, 2], FL = [2, 0.5, 2.5, 1, 3, 1.5, 3.5];
+    const accWof = (k) => (k >= 0 ? M.sharpW : M.flatW) * S + 0.25 * S;
+    // dibuja becuadros de la armadura anterior (si cambia) y la armadura nueva
+    const keySig = (ks, prev, x, top) => {
+      let svg = "", w = 0;
+      if (prev != null && prev !== ks && prev !== 0) {
+        const keep = Math.sign(prev) === Math.sign(ks) ? Math.min(Math.abs(prev), Math.abs(ks)) : 0;
+        for (let k = keep; k < Math.abs(prev); k++) {
+          svg += glyph(G.natural, x + w, top + (prev > 0 ? SH[k] : FL[k]) * S, f.mus, fs);
+          w += 1.15 * S;
+        }
+        if (w) w += 0.4 * S;
+      }
+      const aw = accWof(ks);
+      for (let k = 0; k < Math.abs(ks); k++) {
+        svg += glyph(ks > 0 ? G.sharp : G.flat, x + w, top + (ks > 0 ? SH[k] : FL[k]) * S, f.mus, fs);
+        w += aw;
+      }
+      return { svg, w };
+    };
     const clefX = 0.7 * S, keyX = clefX + M.clefW * S + 0.9 * S;
     const tsW = M.tsW * M.tsScale * S + 1.2 * S;
     const W = PW - ML - MR;
 
-    // ---- agrupar en sistemas
+    // ---- ancho mínimo de cada compás según su contenido (acordes y figuras)
+    const chordW = (c) => textW(chordText(c, cif), f.txt, chordF, f.txtWB) * 0.95 + 0.9 * S;
+    const keyChW = (m) => (Math.abs(m.prevKey || 0) * 1.15 + Math.abs(m.key) * 1.4 + 1.2) * S;
+    function minWidth(m, firstInSys) {
+      let pad = 2.3 * S;
+      if (m.startRepeat) pad += 1.6 * S;
+      if (!firstInSys && m.timeChange) pad += tsW;
+      if (!firstInSys && m.keyChange) pad += keyChW(m);
+      if (m.rest || m.repeat) return pad + 7 * S;
+      return Math.max(pad + layoutItems(m).min, 9 * S);
+    }
+    // espaciado: cada figura tiene un ancho mínimo y el espacio sobrante se reparte según su duración
+    function layoutItems(m) {
+      let items, U;
+      if (m.events) {
+        U = m.time.eighths * 2;
+        items = m.events.map((e) => ({ pos: e.start, w: (e.kind === "rest" ? 1.9 : e.dur >= 8 ? 2.9 : M.slashW + 0.8) * S + ([3, 6, 12].includes(e.dur) ? 0.9 * S : 0), c: e.chord }));
+      } else {
+        U = m.slots.length;
+        items = m.slots.map((c, k) => ({ pos: k, w: (M.slashW + 1.0) * S, c }));
+      }
+      items.forEach((it, k) => (it.dur = (k + 1 < items.length ? items[k + 1].pos : U) - it.pos));
+      for (let k = 0; k < items.length; k++) {
+        const a = items[k];
+        if (!a.c) continue;
+        let j = k + 1, between = 0;
+        while (j < items.length && !items[j].c) { between += items[j].w; j++; }
+        const need = chordW(a.c) * (j < items.length ? 1 : 0.75);
+        a.w = Math.max(a.w, need - between);
+      }
+      return { items, U, min: items.reduce((t, it) => t + it.w, 0) };
+    }
+    function positions(m, cx, cw) {
+      const L = layoutItems(m);
+      const extra = Math.max(0, cw - L.min);
+      // reparto con raíz cuadrada de la duración: las notas largas reciben más aire sin desperdiciar espacio
+      const wt = L.items.map((it) => Math.sqrt(it.dur));
+      const tw = wt.reduce((a, b) => a + b, 0) || 1;
+      const scale = L.min > cw ? cw / L.min : 1;
+      const xs = new Map();
+      let x = cx;
+      L.items.forEach((it, k) => { xs.set(it.pos, x); x += it.w * scale + (extra * wt[k]) / tw; });
+      return xs;
+    }
+    const prefixW = (m, first) => {
+      const prev = m.keyChange ? m.prevKey : null;
+      let w = 0.7 * S + M.clefW * S + 0.9 * S + 0.8 * S;
+      w += Math.abs(m.key) * accWof(m.key) + (prev ? Math.abs(prev) * 1.15 * S + 0.4 * S : 0);
+      if (first || m.timeChange) w += tsW;
+      return w;
+    };
+
+    // ---- agrupar en sistemas (también salta de línea si los compases no caben)
     const systems = [];
-    let cur = [];
-    measures.forEach((m, i) => {
-      if (cur.length && (m.breakBefore || cur.length >= perLine)) { systems.push(cur); cur = []; }
+    let cur = [], curW = 0, curAvail = 0;
+    measures.forEach((m) => {
+      if (cur.length) {
+        const w = minWidth(m, false);
+        if (m.breakBefore || cur.length >= perLine || curW + w > curAvail * 1.12) { systems.push(cur); cur = []; }
+        else { cur.push(m); curW += w; return; }
+      }
+      curAvail = W - prefixW(m, systems.length === 0);
+      curW = minWidth(m, true);
       cur.push(m);
     });
     if (cur.length) systems.push(cur);
@@ -490,15 +585,12 @@ const GR = (() => {
         const staffTop = top, mid = top + 2 * S, bot = top + 4 * S;
         const x0 = ML;
         // pentagrama
-        for (let l = 0; l < 5; l++) svg += `<line x1="${x0}" x2="${PW - MR}" y1="${(top + l * S).toFixed(2)}" y2="${(top + l * S).toFixed(2)}" stroke="#000" stroke-width="${(0.13 * S).toFixed(2)}"/>`;
+
         // clave y armadura
         svg += glyph(G.gClef, x0 + clefX, top + 3 * S, f.mus, fs);
-        const SH = [0, 1.5, -0.5, 1, 2.5, 0.5, 2], FL = [2, 0.5, 2.5, 1, 3, 1.5, 3.5];
-        for (let k = 0; k < Math.abs(ks); k++) {
-          const yy = top + (ks > 0 ? SH[k] : FL[k]) * S;
-          svg += glyph(ks > 0 ? G.sharp : G.flat, x0 + keyX + k * accW, yy, f.mus, fs);
-        }
-        let px = x0 + keyX + keyW + 0.8 * S;
+        const ksig = keySig(sys[0].key, sys[0].keyChange ? sys[0].prevKey : null, x0 + keyX, top);
+        svg += ksig.svg;
+        let px = x0 + keyX + ksig.w + 0.8 * S;
         const sysTime = sys[0].time;
         if (first || sys[0].timeChange) {
           svg += timeSig(sysTime, px + 0.2 * S, top, f, M, fs);
@@ -508,20 +600,30 @@ const GR = (() => {
         svg += `<text x="${x0}" y="${(bot + 2.6 * S).toFixed(1)}" font-family="${f.txt}" font-size="${(1.55 * S).toFixed(1)}" fill="#000">${sys[0].num}</text>`;
         // anchos
         const isLast = si === systems.length - 1;
-        const slots = isLast && sys.length < perLine && !sys.some((m) => m.breakBefore && m !== sys[0]) ? perLine : sys.length;
         const avail = PW - MR - px;
-        const mw = avail / Math.max(slots, sys.length);
+        const mins = sys.map((m, mi) => minWidth(m, mi === 0));
+        const sumMin = mins.reduce((a, b) => a + b, 0);
+        let ws;
+        if ((isLast && sys.length < perLine) || sumMin < avail * 0.5) ws = mins.map((w) => Math.max(w, avail / perLine));
+        else ws = mins.map((w) => w + (avail - sumMin) / sys.length);
+        const tot = ws.reduce((a, b) => a + b, 0);
+        if (tot > avail) ws = ws.map((w) => (w * avail) / tot);
         // barra inicial del sistema
         svg += `<line x1="${x0}" x2="${x0}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="${(0.16 * S).toFixed(2)}"/>`;
 
         let mx = px;
         const sysNotes = [];
         sys.forEach((m, mi) => {
+          const mw = ws[mi];
           const left = mx, right = mx + mw;
           let cx = left + 1.3 * S;
           if (m.startRepeat) {
             svg += barline(mi === 0 ? left : left, top, "start", S);
             cx += 1.6 * S;
+          }
+          if (m.keyChange && mi > 0) {
+            const kk = keySig(m.key, m.prevKey, cx, top);
+            svg += kk.svg; cx += kk.w + 0.6 * S;
           }
           if (m.timeChange && mi > 0) {
             svg += timeSig(m.time, cx, top, f, M, fs);
@@ -553,11 +655,16 @@ const GR = (() => {
           const markDy = busyBelow ? 2.3 * S : 0;
           if (m.mark) {
             const mF = 2.0 * S;
-            const tw = textW(m.mark, f.txt, mF, f.txtWB);
+            const tw = textW(m.markLabel, f.txt, mF, f.txtWB);
             const by = bot + 1.4 * S + markDy, bh = 2.9 * S;
             svg += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(tw + 1.2 * S).toFixed(1)}" height="${bh.toFixed(1)}" fill="#fff" stroke="#000" stroke-width="${(0.2 * S).toFixed(2)}"/>`;
-            svg += `<text x="${(bx + 0.6 * S).toFixed(1)}" y="${(by + bh - 0.75 * S).toFixed(1)}" font-family="${f.txt}" font-weight="${f.txtWB}" font-size="${mF.toFixed(1)}">${esc(m.mark)}</text>`;
+            svg += `<text x="${(bx + 0.6 * S).toFixed(1)}" y="${(by + bh - 0.75 * S).toFixed(1)}" font-family="${f.txt}" font-weight="${f.txtWB}" font-size="${mF.toFixed(1)}">${esc(m.markLabel)}</text>`;
             bx += tw + 2.0 * S;
+            if (m.markTitle) {
+              const tF = 2.0 * S;
+              svg += `<text x="${bx.toFixed(1)}" y="${(by + bh - 0.75 * S).toFixed(1)}" font-family="${f.txt}" font-weight="${f.txtWB}" font-size="${tF.toFixed(1)}">${esc(m.markTitle.toUpperCase())}</text>`;
+              bx += textW(m.markTitle.toUpperCase(), f.txt, tF, f.txtWB) + 1.5 * S;
+            }
           }
           if (m.cue) {
             svg += `<text x="${bx.toFixed(1)}" y="${(bot + 3.75 * S + markDy).toFixed(1)}" font-family="${f.txt}" font-size="${(1.75 * S).toFixed(1)}" font-style="italic" fill="#222">${esc(m.cue)}</text>`;
@@ -571,29 +678,29 @@ const GR = (() => {
           } else if (m.repeat) {
             svg += glyph(G.rep1, left + mw / 2 - (M.rep1W * S) / 2, mid, f.mus, fs);
           } else if (m.events) {
-            const E = m.time.eighths;
-            const step = cw / E;
+            const xs = positions(m, cx, cw);
             const placed = [];
             for (const ev of m.events) {
-              const x = cx + ev.start * step;
+              const x = xs.get(ev.start);
+              const dotted = ev.dur === 3 || ev.dur === 6 || ev.dur === 12;
               if (ev.kind === "rest") {
                 if (ev.whole) { svg += glyph(G.restWhole, left + mw / 2 - (M.restWholeW * S) / 2, top + S, f.mus, fs); continue; }
-                const g = ev.dur >= 8 ? G.restWhole : ev.dur >= 4 ? G.restHalf : ev.dur >= 2 ? G.restQuarter : G.rest8;
-                svg += glyph(g, x + 0.2 * S, ev.dur >= 8 ? top + S : mid, f.mus, fs);
-                if (ev.dur === 3 || ev.dur === 6) svg += glyph(G.dot, x + 1.6 * S, mid - 0.5 * S, f.mus, fs);
+                const g = ev.dur >= 16 ? G.restWhole : ev.dur >= 8 ? G.restHalf : ev.dur >= 4 ? G.restQuarter : ev.dur >= 2 ? G.rest8 : G.rest16;
+                svg += glyph(g, x + 0.2 * S, ev.dur >= 16 ? top + S : mid, f.mus, fs);
+                if (dotted) svg += glyph(G.dot, x + 1.8 * S, mid - 0.5 * S, f.mus, fs);
                 continue;
               }
-              const long = ev.dur >= 4;
+              const long = ev.dur >= 8;
               const n = { x, ev, headW: long ? 2.16 * S : M.slashW * S };
               placed.push(n);
-              // blanca y redonda: rombo (como en las guías del coro); negra y corchea: slash
-              if (long) svg += glyph(ev.dur >= 8 ? G.diamondWhole : G.diamondHalf, x, mid, f.mus, fs * 2);
+              // blanca y redonda: rombo (como en las guías del coro); negra, corchea y semicorchea: slash
+              if (long) svg += glyph(ev.dur >= 16 ? G.diamondWhole : G.diamondHalf, x, mid, f.mus, fs * 2);
               else svg += glyph(G.slash, x, mid, f.mus, fs);
-              if (ev.dur < 8) {
+              if (ev.dur < 16) {
                 n.stemX = x + (long ? 0.1 : 0.07) * S; n.stemEnd = mid + STEM * S;
                 svg += stemDown(n.stemX, mid + (long ? 0.1 : 0.9) * S, n.stemEnd, S);
               }
-              if (ev.dur === 3 || ev.dur === 6) svg += glyph(G.dot, x + n.headW + 0.45 * S, mid - 0.5 * S, f.mus, fs);
+              if (dotted) svg += glyph(G.dot, x + n.headW + 0.45 * S, mid - 0.5 * S, f.mus, fs);
               if (ev.accent) svg += glyph(G.accentBelow, x + 0.07 * S - (M.accentW * S) / 2, mid + (STEM + 0.8) * S, f.mus, fs);
               if (ev.chord) {
                 svg += chordSVG(ev.chord, x, chordY, st, cif, chordF);
@@ -601,29 +708,42 @@ const GR = (() => {
               }
               sysNotes.push({ x, w: n.headW, tieOut: ev.tieOut, m });
             }
-            // corcheas: barras o banderas
-            const grp = m.time.group;
+            // corcheas y semicorcheas: barras por tiempo, o banderas si van solas
+            const grp = m.time.compound ? 6 : 4;
+            const beamRect = (xa, xb, y) => `<rect x="${xa.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0, xb - xa).toFixed(1)}" height="${(0.5 * S).toFixed(1)}" fill="#000"/>`;
             let i = 0;
             while (i < placed.length) {
               const a = placed[i];
-              if (a.ev.dur !== 1) { i++; continue; }
+              if (a.ev.dur > 3) { i++; continue; }
               const g = Math.floor(a.ev.start / grp);
               let j = i;
-              while (j + 1 < placed.length && placed[j + 1].ev.dur === 1 && Math.floor(placed[j + 1].ev.start / grp) === g && placed[j + 1].ev.start === placed[j].ev.start + 1) j++;
+              while (j + 1 < placed.length && placed[j + 1].ev.dur <= 3 && Math.floor(placed[j + 1].ev.start / grp) === g
+                && placed[j + 1].ev.start === placed[j].ev.start + placed[j].ev.dur) j++;
               if (j > i) {
-                const xa = placed[i].stemX - 0.07 * S, xb = placed[j].stemX + 0.07 * S, yb = placed[i].stemEnd;
-                svg += `<rect x="${xa.toFixed(1)}" y="${(yb - 0.5 * S).toFixed(1)}" width="${(xb - xa).toFixed(1)}" height="${(0.5 * S).toFixed(1)}" fill="#000"/>`;
+                const yb = placed[i].stemEnd;
+                svg += beamRect(placed[i].stemX - 0.07 * S, placed[j].stemX + 0.07 * S, yb - 0.5 * S);
+                const y2 = yb - 1.25 * S;
+                for (let k = i; k <= j; k++) {
+                  if (placed[k].ev.dur !== 1) continue;
+                  const nx = k < j ? placed[k + 1] : null;
+                  if (nx && nx.ev.dur === 1) svg += beamRect(placed[k].stemX - 0.07 * S, nx.stemX + 0.07 * S, y2);
+                  else if (!(k > i && placed[k - 1].ev.dur === 1)) {
+                    // gancho corto: hacia la derecha si es la primera, si no hacia la izquierda
+                    if (k === i) svg += beamRect(placed[k].stemX - 0.07 * S, placed[k].stemX + 1.3 * S, y2);
+                    else svg += beamRect(placed[k].stemX - 1.3 * S, placed[k].stemX + 0.07 * S, y2);
+                  }
+                }
               } else {
-                svg += glyph(G.flag8Down, a.stemX - 0.07 * S, a.stemEnd, f.mus, fs);
+                svg += glyph(a.ev.dur === 1 ? G.flag16Down : G.flag8Down, a.stemX - 0.07 * S, a.stemEnd, f.mus, fs);
               }
               i = j + 1;
             }
           } else {
             const b = m.slots.length;
-            const step = cw / b;
+            const xs = positions(m, cx, cw);
             for (let k = 0; k < b; k++) {
               const c = m.slots[k];
-              const x = cx + k * step;
+              const x = xs.get(k);
               const restEmpty = m.slots.slice(k + 1).every((z) => !z);
               if (c && c.hold && restEmpty && (k === 0 || (b - k) * 2 >= b)) {
                 // acorde sostenido: rombo grande (redonda) o rombo blanco con plica (blanca)
@@ -661,6 +781,8 @@ const GR = (() => {
           pHits.push({ num: m.num, start: m.start, end: m.end, x: left, y: top - 6.5 * S, w: mw, h: 12.5 * S });
           mx = right;
         });
+        // pentagrama hasta el final del último compás de la línea
+        for (let l = 0; l < 5; l++) svg += `<line x1="${x0}" x2="${mx.toFixed(1)}" y1="${(top + l * S).toFixed(2)}" y2="${(top + l * S).toFixed(2)}" stroke="#000" stroke-width="${(0.13 * S).toFixed(2)}"/>`;
         // ligaduras dentro del sistema y hacia el siguiente
         for (let k = 0; k < sysNotes.length; k++) {
           const n = sysNotes[k];
